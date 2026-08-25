@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>G33k's Importer — hosted setup</title>
+<style>
+  body { font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; max-width: 640px; margin: 0 auto; padding: 16px; color: #1f2328; background: #fff; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  p.sub { color: #57606a; margin-top: 0; }
+  .step { background: #f6f8fa; border: 1px solid #d0d7de; border-radius: 10px; padding: 12px 14px; margin: 12px 0; }
+  .step h2 { font-size: 15px; margin: 0 0 8px; }
+  ol { margin: 6px 0 0; padding-left: 20px; }
+  li { margin: 4px 0; }
+  code { background: #eef1f4; border-radius: 4px; padding: 1px 5px; font-size: 13px; }
+  button { background: #1f883d; color: #fff; border: 0; border-radius: 8px; padding: 12px 16px; font-size: 15px; font-weight: 600; width: 100%; cursor: pointer; }
+  button:active { opacity: .85; }
+  #status { margin-top: 8px; font-size: 14px; min-height: 18px; color: #1a7f37; }
+  textarea { width: 100%; height: 110px; font: 11px/1.4 ui-monospace, Menlo, Consolas, monospace; box-sizing: border-box; margin-top: 8px; border: 1px solid #d0d7de; border-radius: 8px; padding: 8px; color: #57606a; background: #f6f8fa; }
+  .note { font-size: 13px; color: #57606a; }
+  .warn { background: #fff8c5; border: 1px solid #d4a72c; border-radius: 8px; padding: 8px 10px; font-size: 13px; margin-top: 10px; }
+  .good { background: #dafbe1; border: 1px solid #1a7f37; border-radius: 8px; padding: 8px 10px; font-size: 13px; margin-top: 10px; }
+</style>
+</head>
+<body>
+<h1>G33k's Importer — hosted setup</h1>
+<p class="sub">Tiny bookmark, code loaded from this page's website. Works in Yandex, Firefox, Samsung Internet — and often Chrome too.</p>
+
+<div class="step">
+  <h2>Step 1 — Copy the short bookmark code</h2>
+  <button id="copyBtn">Tap to copy the code</button>
+  <div id="status"></div>
+  <textarea id="bm" readonly spellcheck="false"></textarea>
+  <p class="note">If copy fails: long-press inside the box &rarr; Select all &rarr; Copy.</p>
+</div>
+
+<div class="step">
+  <h2>Step 2 — Create the bookmark</h2>
+  <ol>
+    <li>Open <b>any</b> page in Yandex / Firefox / Samsung Internet, tap the menu (<code>&#8942;</code>), then <b>Add to bookmarks</b>.</li>
+    <li>Open the bookmarks manager and find the bookmark.</li>
+    <li>Long-press it &rarr; <b>Edit</b>.</li>
+    <li>Long-press the <b>address / URI</b> field &rarr; <b>Select all</b> &rarr; <b>Paste</b> (replaces the old address with the code).</li>
+    <li>Rename to <b>G33k's Importer</b> and <b>Save</b>.</li>
+  </ol>
+</div>
+
+<div class="step">
+  <h2>Step 3 — Test it</h2>
+  <ol>
+    <li>Open <code>example.com</code> (a neutral page with no security settings).</li>
+    <li>Open bookmarks and tap <b>G33k's Importer</b>.</li>
+    <li>A small dark panel should appear at the bottom right.</li>
+  </ol>
+  <div class="good">If it appears here, it will work on FictionLab too.</div>
+</div>
+
+<div class="step">
+  <h2>Step 4 — Use it on FictionLab</h2>
+  <ol>
+    <li>Open <code>https://fictionlab.ai</code> and sign in.</li>
+    <li>Go to <b>New Scenario</b> or open a scenario and tap <b>Edit / Customise</b> (address must show <code>/create-scenario</code> or <code>/edit-scenario/...</code>).</li>
+    <li>Open bookmarks &rarr; tap <b>G33k's Importer</b> &rarr; the panel appears.</li>
+    <li>Tap <b>Choose file</b> and select <code>fictionlab_export.json</code>.</li>
+    <li>Tap <b>Start</b> and wait. When it finishes, tap <b>Save / Publish</b> on the FictionLab page yourself.</li>
+  </ol>
+</div>
+
+<div class="warn">
+  <b>Notes:</b> the JSON file must be on the phone (e.g. in Downloads). The bookmark needs internet access the first time (it loads the code from this website). If a page shows an alert about loading the code, that website blocks it — use the long-code version instead.
+</div>
+
+<div class="step">
+  <h2>Troubleshooting</h2>
+  <ol>
+    <li><b>Panel doesn't appear on example.com</b> — the bookmark wasn't saved or the browser blocked it. Edit the bookmark: the address must start with <code>javascript:</code> and end with <code>})();</code>.</li>
+    <li><b>Alert says it could not load the code</b> — this page's website is offline or the link is wrong; tell the person who set this up.</li>
+    <li><b>Alert on fictionlab.ai but not on example.com</b> — FictionLab blocks loading external code; use the long-code version instead.</li>
+    <li><b>"That file is not valid JSON"</b> — the file must be the <code>fictionlab_export.json</code> from G33k's Exporter.</li>
+    <li><b>"Open FictionLab's scenario editor"</b> — you're not on a New Scenario / Edit page yet.</li>
+  </ol>
+</div>
+
+<script>
+(function () {
+  var codeUrl = new URL("importer-code.js", location.href).href;
+  var bookmark =
+    "javascript:(()=>{const u='" + codeUrl + "';" +
+    "fetch(u).then(r=>r.text()).then(s=>{new Function(s)()})" +
+    ".catch(()=>{const e=document.createElement('script');e.src=u;" +
+    "e.onerror=()=>alert('G33k Importer: could not load '+u);document.body.appendChild(e)})})();";
+  var ta = document.getElementById("bm");
+  ta.value = bookmark;
+  var status = document.getElementById("status");
+  document.getElementById("copyBtn").addEventListener("click", function () {
+    var done = function (ok) {
+      status.textContent = ok ? "Copied! Now create the bookmark in Step 2." : "Auto-copy failed - long-press inside the box, Select all, then Copy.";
+    };
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(ta.value).then(function () { done(true); }, function () { done(false); });
+        return;
+      }
+    } catch (error) {}
+    done(false);
+  });
+})();
+</script>
+</body>
+</html>
