@@ -403,7 +403,7 @@ let stopped = false;
 
   function textareaNearLabel(labelText) {
     const wanted = clean(labelText);
-    const label = [...document.querySelectorAll("p, label")]
+    const label = [...document.querySelectorAll("p, label, div, h1, h2, h3, span, legend, summary")]
       .find((element) => clean(element.textContent).startsWith(wanted));
     return label?.parentElement?.querySelector("textarea")
       || label?.parentElement?.parentElement?.querySelector("textarea")
@@ -412,15 +412,33 @@ let stopped = false;
 
   function richEditorNearLabel(labelText) {
     const wanted = clean(labelText);
-    const label = [...document.querySelectorAll("p, label")]
+    const label = [...document.querySelectorAll("p, label, div, h1, h2, h3, span, legend, summary")]
       .find((element) => clean(element.textContent).startsWith(wanted));
-    return label?.parentElement?.querySelector(".ql-editor[contenteditable='true']")
+    return label?.querySelector(".ql-editor[contenteditable='true']")
+      || label?.parentElement?.querySelector(".ql-editor[contenteditable='true']")
       || label?.parentElement?.parentElement?.querySelector(".ql-editor[contenteditable='true']")
+      || null;
+  }
+
+  function richEditorNearText(wanted) {
+    const label = [...document.querySelectorAll("p, label, div, h1, h2, h3, span, legend, summary")]
+      .filter((element) => visible(element) && clean(element.textContent).includes(wanted))
+      .sort((a, b) => clean(a.textContent).length - clean(b.textContent).length)[0];
+    if (!label) return null;
+    return label.querySelector(".ql-editor[contenteditable='true']")
+      || label.parentElement?.querySelector(".ql-editor[contenteditable='true']")
+      || label.parentElement?.parentElement?.querySelector(".ql-editor[contenteditable='true']")
       || null;
   }
 
   function fillRichText(element, html, text) {
     if (!element || (!html && !text)) return;
+    const container = element.closest(".ql-container");
+    const quill = (typeof window !== "undefined" && window.Quill?.find ? window.Quill.find(element) : null)
+      || (container && (container.__quill || container.quill));
+    if (quill && typeof quill.clipboard?.dangerouslyPasteHTML === "function") {
+      try { quill.clipboard.dangerouslyPasteHTML(html || text); return; } catch (error) { /* fall through */ }
+    }
     const safeText = String(text || "");
     const paragraphs = safeText.split(/\n{2,}/).map((part) => `<p>${part.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br>") || "<br>"}</p>`).join("");
     element.innerHTML = html || paragraphs;
@@ -432,10 +450,15 @@ let stopped = false;
   async function revealOptionalField(buttonText, findField) {
     const existing = findField();
     if (existing) return existing;
-    const wanted = clean(buttonText);
-    const candidates = [...document.querySelectorAll('button, [role="button"], div, span, p')]
-      .filter((element) => visible(element) && clean(element.textContent) === wanted);
-    const trigger = candidates.find((element) => element.matches('button, [role="button"]')) || candidates[candidates.length - 1];
+    const labels = (Array.isArray(buttonText) ? buttonText : [buttonText]).map(clean).filter(Boolean);
+    const isMatch = (text) => {
+      const t = clean(text);
+      return labels.some((label) => label && (t === label || t.includes(label) || label.includes(t)));
+    };
+    const candidates = [...document.querySelectorAll('button, [role="button"], div, span, p, summary, h1, h2, h3, legend, a')]
+      .filter((element) => visible(element) && !element.closest("[contenteditable='true']") && isMatch(element.textContent))
+      .sort((a, b) => clean(a.textContent).length - clean(b.textContent).length);
+    const trigger = candidates.find((element) => element.matches('button, [role="button"]')) || candidates[0];
     if (!trigger) return null;
     trigger.click();
     try {
@@ -450,15 +473,33 @@ let stopped = false;
     if (importFields.title !== false) fillIfPresent(document.querySelector("#scenario-name") || document.querySelector('[placeholder^="Scenario Title"]'), fields.title);
     if (importFields.description !== false) fillIfPresent(document.querySelector("#scenario-description") || document.querySelector('textarea[placeholder^="This will be shown in the scenario card"]'), fields.description);
     if (importFields.backstory !== false) fillIfPresent(document.querySelector("#scenario-backstory") || document.querySelector('textarea[placeholder^="Write the scenario\'s backstory"]'), fields.backstory);
+    const introWarnings = [];
     if (importFields.introduction !== false && (fields.introduction || fields.introductionHtml)) {
-      const introduction = await revealOptionalField("Add Introduction Section", () => (
-        richEditorNearLabel("Scenario Introduction")
-        || fieldContainingPlaceholder("scenario introduction")
-        || fieldContainingPlaceholder("introduction shown")
-        || textareaNearLabel("Scenario Introduction")
-      ));
-      if (introduction?.isContentEditable) fillRichText(introduction, fields.introductionHtml, fields.introduction);
-      else fillIfPresent(introduction, fields.introduction);
+      const introduction = await revealOptionalField(
+        ["Add Introduction Section", "Add Introduction", "Add Intro", "Introduction Section", "Scenario Introduction"],
+        () => (
+          richEditorNearText("intro")
+          || richEditorNearLabel("Scenario Introduction")
+          || fieldContainingPlaceholder("scenario introduction")
+          || fieldContainingPlaceholder("introduction shown")
+          || textareaNearLabel("Scenario Introduction")
+          || (document.querySelectorAll(".ql-editor[contenteditable='true']").length === 1
+              ? document.querySelector(".ql-editor[contenteditable='true']")
+              : null)
+        )
+      );
+      if (introduction?.isContentEditable) {
+        fillRichText(introduction, fields.introductionHtml, fields.introduction);
+        const probe = String(fields.introductionHtml || fields.introduction || "")
+          .replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim().slice(0, 60);
+        if (probe.length > 10 && !(" " + introduction.textContent.replace(/\s+/g, " ") + " ").includes(probe)) {
+          introWarnings.push("the Introduction editor did not accept the rich content (images/fonts may be missing)");
+        }
+      } else if (introduction) {
+        fillIfPresent(introduction, fields.introduction);
+      } else {
+        introWarnings.push("the Introduction section was not found on this page");
+      }
     }
     if (importFields.greeting !== false && fields.greeting) {
       const greeting = await revealOptionalField("Add Greeting Message", () => fieldContainingPlaceholder("first message users receive"));
@@ -507,7 +548,7 @@ let stopped = false;
       }
     }
     await pause(100);
-    return { skippedTags: [...new Set(skippedTags)] };
+    return { skippedTags: [...new Set(skippedTags)], introWarnings };
   }
 
   async function fillForceCharacter(title) {
@@ -735,7 +776,10 @@ let stopped = false;
     const skippedTagNote = scenarioResult.skippedTags.length
       ? ` Skipped unavailable scenario tags: ${scenarioResult.skippedTags.join(", ")}.`
       : "";
-    progress(`Import complete.${skippedTagNote} Review the editor, then save the draft yourself.`, total, total, false);
+    const introNote = scenarioResult.introWarnings && scenarioResult.introWarnings.length
+      ? " IMPORTANT: the Introduction was not imported (" + scenarioResult.introWarnings.join("; ") + "). Re-run the importer on the Edit page of the scenario to try again."
+      : "";
+    progress(`Import complete.${skippedTagNote}${introNote} Review the editor, then save the draft yourself.`, total, total, false);
   }
 
 // ---- Bookmarklet UI (replaces the Chrome side panel + chrome.* calls) ----
